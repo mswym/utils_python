@@ -11,7 +11,7 @@ class ReadImgDir:
     def __init__(self,
                  path_dir: str,
                  flag_crop: bool = False,
-                 size_crop: int = 32,
+                 size_crop: int = 256,
                  flag_resize: bool = False,
                  scale_resize: float = 0.25):
         self.fname_list_img = glob.glob(path_dir)
@@ -23,23 +23,16 @@ class ReadImgDir:
         self.scale_resize = scale_resize
         self.imgs = []
         self.imgs_float = []
+        self.size_img = []
         self.labels = []
         print('num of images is ' + str(self.num_img))
-        self.read_imgs_fromdir()
+        #self.read_imgs_fromdir()
 
     def read_imgs_fromdir(self):
 
         for i_list in range(self.num_img):
             print(self.fname_list_img[i_list])
             img = Image.open(self.fname_list_img[i_list])
-            img = np.array(img)
-            if self.flag_crop:
-                mask_crop = np.zeros(img.shape)
-                pos_center = [img.shape[0] / 2, img.shape[1] / 2]
-                mask_crop[round(pos_center[0] - (self.size_crop / 2)):round(pos_center[0] + (self.size_crop / 2)),
-                round(pos_center[1] - (self.size_crop / 2)):round(pos_center[1] + (self.size_crop / 2))] = 1
-                img = img * mask_crop
-            img = Image.fromarray(img.astype('uint8'))
 
             if self.flag_resize:
                 width, height = img.size
@@ -61,16 +54,20 @@ class ReadImgDir:
             mean_img.append(np.mean(img, 2))
             std_img.append(np.std(img, 2))
 
-    def divide_imgs_col(self, num_divide: int = 4, flag_dif: bool = True):
+    def divide_imgs_col(self, num_divide: int = 4, flag_dif: bool = True, path_save_dir: str =''):
         # this divide each image in the horizontal direction with the number of num_divide.
         # this function will update self.imgs and self.num_img
         # for a specific project I put a function to take a difference from the first image in each cutting.
-        imgs = []
+        # imgs = []
         labels = []
-        size_img = np.array(self.imgs[0]).shape
-        cut_shape = int(size_img[1]/num_divide)
-        count = 0
-        for l, img in enumerate(self.imgs):
+
+        for label in self.fname_list_img:
+            img = Image.open(label)
+            if self.flag_resize:
+                width, height = img.size
+                img = img.resize((int(width*self.scale_resize), int(height*self.scale_resize)))
+            width, height = img.size
+            cut_shape = int(width/num_divide)
             img = np.array(img)
             img = img.astype('float')
             for i in range(num_divide):
@@ -79,29 +76,35 @@ class ReadImgDir:
                     if i == 0:
                         img_1 = copy.deepcopy(img_div)
                     else:
-                        count = count + 1
                         img_tmp = img_div - img_1 + 128
                         self.imgs_float.append(img_tmp)
+                        print('min: ' + str(np.min(img_tmp)) + 'max:' + str(np.max(img_tmp)))
                         img_tmp[np.where(img_tmp < 0)] = 0
                         img_tmp[np.where(img_tmp > 255)] = 255
-                        print('min: ' + str(np.min(img_tmp)) + 'max:' + str(np.max(img_tmp)))
                         img_tmp = img_tmp.astype('uint8')
                         img_tmp = Image.fromarray(img_tmp)
-                        imgs.append(img_tmp)
-                        label, ext  = os.path.splitext(self.labels[l])
-                        labels.append(label + '_' + str(i) + ext)
+                        #imgs.append(img_tmp)
+                        label_body, ext  = os.path.splitext(os.path.basename(label))
+                        labels.append(label_body + '_' + str(i) + ext)
+                        self.save_img(path_save_dir, img_tmp, label_body + '_' + str(i) + ext)
                 else:
                     img_tmp = img_tmp.astype('uint8')
-                    img_div = Image.fromarray(img_div)
-                    imgs.append(img_div)
-                    label, ext = os.path.splitext(self.labels[l])
-                    labels.append(label + '_' + str(i) + ext)
+                    img_tmp = Image.fromarray(img_tmp)
+                    #imgs.append(img_div)
+                    label_body, ext = os.path.splitext(os.path.basename(label))
+                    labels.append(label_body + '_' + str(i) + ext)
+                    self.save_img(path_save_dir, img_tmp, label_body + '_' + str(i) + ext)
 
-        self.imgs = imgs
+        #self.imgs = imgs
+        self.size_img = np.array(img_tmp).shape
         self.labels = labels
         self.num_img = self.num_img * num_divide
 
-    def save_img(self, path_save_dir):
+    def save_img(self, path_save_dir, img, label):
+        label, ext = os.path.splitext(label)
+        img.save(path_save_dir+label+'.png', format='PNG')
+
+    def save_imgs(self, path_save_dir):
         for i, img in enumerate(self.imgs):
             label, ext = os.path.splitext(self.labels[i])
             img.save(path_save_dir+label+'.png', format='PNG')
@@ -115,47 +118,73 @@ class ReadImgDir:
                             pos_center_x-h_size_crop:pos_center_x+h_size_crop,:]
         return img
 
-    def crop_imgs(self, size_crop):
-        h_size_crop = int(size_crop/2)
-        size_img = self.imgs_float[0].shape
-        pos_center_x = int(size_img[1]/2)
-        pos_center_y = int(size_img[0]/2)
-        self.imgs = []
-        imgs_new_float = []
-        for img in self.imgs_float:
-            tmp = img[pos_center_y-h_size_crop:pos_center_y+h_size_crop,
-                            pos_center_x-h_size_crop:pos_center_x+h_size_crop,:]
-            imgs_new_float.append(tmp)
-            tmp = tmp.astype('uint8')
-            tmp = Image.fromarray(tmp)
-            self.imgs.append(tmp)
-        self.imgs_float = imgs_new_float
+    def open_img(self, path, label):
+        label_body, ext = os.path.splitext(label)
+        return Image.open(path + label_body + '.png')
 
+    def crop_imgs(self, size_crop, path, path_save):
+        h_size_crop = int(size_crop/2)
+        pos_center_x = int(self.size_img[1]/2)
+        pos_center_y = int(self.size_img[0]/2)
+        for label in self.labels:
+            print(label)
+            img = self.open_img(path, label)
+            img = img.crop((pos_center_x-h_size_crop,pos_center_y-h_size_crop,
+                     pos_center_x+h_size_crop,pos_center_y+h_size_crop))
+            self.save_img(path_save, img, label)
+
+    def cut_imgs(self, size_cut, path_save):
+
+        imgs_cut = []
+        num_height = int(list_imgs.size_img[0]/size_cut)
+        num_width = int(list_imgs.size_img[1] / size_cut)
+        count = 0
+        for img in self.imgs_float:
+            for h in range(num_height):
+                for w in range(num_width):
+                    count += 1
+                    tmp = img[h*size_cut:h*size_cut+size_cut,
+                            w*size_cut:w*size_cut+size_cut, :]
+                    imgs_cut.append(tmp)
+                    tmp = tmp.astype('uint8')
+                    tmp = Image.fromarray(tmp)
+                    self.save_img(path_save, tmp, str(count))
+        self.imgs_float = imgs_cut
 
 if __name__ == '__main__':
     path = '../layer6-8/*.jpg'
-    path_save = '../img_dif/'
-    path_save2 = '../img_dif_crop/crop_'
+    path_save = '../img_dif170/'
+    path_save3 = '../img_dif_cut/cut_'
 
-    fname_save = 'imgs_layer6-8.pickle'
+    fname_save = 'class_layer6-8.pickle'
+    fname_save2 = 'imgs_layer6-8_170.pickle'
 
-    size_crop = 256
+    size_cut = 16
 
-    list_imgs = ReadImgDir(path, flag_resize = False,
-                 scale_resize = 0.5)
+    list_imgs = ReadImgDir(path, flag_resize = True,
+                 scale_resize = 0.166)
 
     #divide each image
-    #list_imgs.divide_imgs_col()
-    #list_imgs.save_img(path_save2)
+    list_imgs.divide_imgs_col(path_save_dir=path_save)
 
-    #crop image
-    #list_imgs.crop_imgs(size_crop)
-    #list_imgs.save_img(path_save2)
     with open(path_save + fname_save, mode='wb') as f:
-            pickle.dump(list_imgs, f)
+        pickle.dump(list_imgs, f)
+
+    with open(path_save + fname_save2, mode='wb') as f:
+        pickle.dump(list_imgs.imgs_float, f)
+
+
+    #with open(path_save + fname_save, mode='rb') as f:
+    #    list_imgs = pickle.load(f)
+
+    list_imgs.cut_imgs(size_cut, path_save3)
+
+    with open(path_save3 + fname_save, mode='wb') as f:
+        pickle.dump(list_imgs, f)
+
+    with open(path_save3 + fname_save2, mode='wb') as f:
+        pickle.dump(list_imgs.imgs_float, f)
 
 
 
-#    with open(path_save + fname_save, mode='rb') as f:
-#            list_imgs = pickle.load(f)
 
