@@ -22,7 +22,7 @@ def sample_roi(imgs, size_cut, num_patches_per_img):
                                   [size_cut, size_cut, 3]))
     return np.array(roi)
 
-def cal_norm(img):
+def cal_norm(imgs):
     mean_imgs = np.mean(imgs)
     std_imgs = np.std(imgs)
     imgs_norm = (imgs - mean_imgs)/std_imgs
