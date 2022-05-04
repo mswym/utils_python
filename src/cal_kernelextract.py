@@ -73,6 +73,3 @@ if __name__ == '__main__':
     kernels = np.reshape(ica.components_,[num_components, size_imgs[1], size_imgs[2], size_imgs[3]])
     kernels = kernels - np.min(kernels)
     kernels = kernels/np.max(kernels)
-    kernel = (kernel*std_imgs)+mean_imgs
-
-    a = 1

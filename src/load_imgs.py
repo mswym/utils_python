@@ -153,16 +153,16 @@ class ReadImgDir:
 
 if __name__ == '__main__':
     path = '../layer6-8/*.jpg'
-    path_save = '../img_dif170/'
+    path_save = '../img_dif340/'
     path_save3 = '../img_dif_cut/cut_'
 
     fname_save = 'class_layer6-8.pickle'
-    fname_save2 = 'imgs_layer6-8_170.pickle'
+    fname_save2 = 'imgs_layer6-8_340.pickle'
 
-    size_cut = 16
+    size_cut = 32
 
     list_imgs = ReadImgDir(path, flag_resize = True,
-                 scale_resize = 0.166)
+                 scale_resize = 0.332)
 
     #divide each image
     list_imgs.divide_imgs_col(path_save_dir=path_save)
@@ -177,13 +177,13 @@ if __name__ == '__main__':
     #with open(path_save + fname_save, mode='rb') as f:
     #    list_imgs = pickle.load(f)
 
-    list_imgs.cut_imgs(size_cut, path_save3)
+    #list_imgs.cut_imgs(size_cut, path_save3)
 
-    with open(path_save3 + fname_save, mode='wb') as f:
-        pickle.dump(list_imgs, f)
+    #with open(path_save3 + fname_save, mode='wb') as f:
+    #    pickle.dump(list_imgs, f)
 
-    with open(path_save3 + fname_save2, mode='wb') as f:
-        pickle.dump(list_imgs.imgs_float, f)
+    #with open(path_save3 + fname_save2, mode='wb') as f:
+    #    pickle.dump(list_imgs.imgs_float, f)
 
 
 
