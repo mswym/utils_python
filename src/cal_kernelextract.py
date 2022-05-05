@@ -50,11 +50,11 @@ def cal_sequential_sample(path):
     imgs = imgs[0:1000, :, :, :]
     size_imgs = imgs.shape
 
-def make_panels(model, num_components, size_imgs):
+def make_panels(model, num_components, size_imgs, scale_contrast = 2):
     kernels = np.reshape(model.components_, [num_components, size_imgs[1], size_imgs[2], size_imgs[3]])
     kernels = kernels - np.min(kernels)
     kernels = kernels / np.max(kernels)
-    kernels = 128*(kernels - np.mean(kernels)) + 128
+    kernels = scale_contrast*128*(kernels - np.mean(kernels)) + 128
     kernels[np.where(kernels<0)] = 0
     kernels[np.where(kernels>255)] = 255
     kernels = kernels.astype('uint8')
@@ -72,7 +72,8 @@ if __name__ == '__main__':
     num_patches_per_img = 10 #8000 in total
     size_cut = 32
     type_model = 'ica'
-    fname_save = type_model + 'output_340.png'
+    fname_save = type_model + '_output_340.png'
+    scale_contrast = 2
 
     with open(path, mode='rb') as f:
         imgs = pickle.load(f)
@@ -90,7 +91,7 @@ if __name__ == '__main__':
     elif type_model=='sparse':
         model = cal_dictionary(imgs_norm, num_components)
     #reshape and rescale
-    panels = make_panels(model)
+    panels = make_panels(model, num_components, size_imgs)
 
     panels = panels.astype('uint8')
     panels = Image.fromarray(panels)
