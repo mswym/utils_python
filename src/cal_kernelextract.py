@@ -6,9 +6,10 @@ import glob
 import pickle
 import matplotlib.pyplot as plt
 
-from sklearn.decomposition import PCA, FastICA, DictionaryLearning
+import torch
+import torchvision
 
-from load_imgs import *
+from sklearn.decomposition import PCA, FastICA, DictionaryLearning
 
 def sample_roi(imgs, size_cut, num_patches_per_img):
 
@@ -39,7 +40,7 @@ def cal_dictionary(imgs, num_components):
     dict_learner = DictionaryLearning(n_components=num_components, transform_algorithm='lasso_lars')
     dict_learner.fit(imgs)
 
-    return ica
+    return dict_learner
 
 def cal_sequential_sample(path):
     with open(path, mode='rb') as f:
@@ -49,11 +50,29 @@ def cal_sequential_sample(path):
     imgs = imgs[0:1000, :, :, :]
     size_imgs = imgs.shape
 
+def make_panels(model, num_components, size_imgs):
+    kernels = np.reshape(model.components_, [num_components, size_imgs[1], size_imgs[2], size_imgs[3]])
+    kernels = kernels - np.min(kernels)
+    kernels = kernels / np.max(kernels)
+    kernels = 128*(kernels - np.mean(kernels)) + 128
+    kernels[np.where(kernels<0)] = 0
+    kernels[np.where(kernels>255)] = 255
+    kernels = kernels.astype('uint8')
+    kernels = kernels.transpose(0, 3, 1, 2)
+    kernels = torch.from_numpy(kernels)
+
+    kernels = torchvision.utils.make_grid(kernels, nrow=10)
+    kernels = kernels.to('cpu').detach().numpy().transpose(1, 2, 0).copy()
+
+    return kernels
+
 if __name__ == '__main__':
-    path = '../img_dif170/imgs_layer6-8_170.pickle'
+    path = '../img_dif340/imgs_layer6-8_340.pickle'
     num_components = 100
-    num_patches_per_img = 1
-    size_cut = 16
+    num_patches_per_img = 10 #8000 in total
+    size_cut = 32
+    type_model = 'ica'
+    fname_save = type_model + 'output_340.png'
 
     with open(path, mode='rb') as f:
         imgs = pickle.load(f)
@@ -66,10 +85,14 @@ if __name__ == '__main__':
     #normalize
     imgs_norm, mean_imgs, std_imgs = cal_norm(imgs)
 
-    #ica
-    ica = cal_ica(imgs_norm, num_components)
-    # sparse = cal_dictionary(imgs_norm, num_components)
+    if type_model=='ica':
+        model = cal_ica(imgs_norm, num_components)
+    elif type_model=='sparse':
+        model = cal_dictionary(imgs_norm, num_components)
     #reshape and rescale
-    kernels = np.reshape(ica.components_,[num_components, size_imgs[1], size_imgs[2], size_imgs[3]])
-    kernels = kernels - np.min(kernels)
-    kernels = kernels/np.max(kernels)
+    panels = make_panels(model)
+
+    panels = panels.astype('uint8')
+    panels = Image.fromarray(panels)
+    panels.save(fname_save)
+
